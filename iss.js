@@ -22,11 +22,14 @@ const fetchCoordsByIP = (ip, callback) => {
     
     if (err) return callback(err, null);
 
+    //body has a success key where the value is a boolean
+    //checking for a false success
     if (!body.success) {
       const message = `Success status was ${body.success}. Server message says: ${body.message} when fetching for IP ${body.ip}`;
       callback(Error(message), null);
       return;
     }
+
     const coords = {latitude: body.latitude, longitude: body.longitude};
 
     callback(null, coords);
@@ -37,28 +40,60 @@ const fetchCoordsByIP = (ip, callback) => {
 const fetchISSFlyOverTimes = (coordinates, callback) => {
   needle.get(`https://iss-flyover.herokuapp.com/json/?lat=${coordinates.latitude}&lon=${coordinates.longitude}`, (err, response, body) => {
 
-    if(err) return callback(err, null);
+    if (err) return callback(err, null);
     
-    if (response.statusCode !== 200 ) {
+    //checking for non-200 status code
+    if (response.statusCode !== 200) {
       const message = `Status code: ${response.statusCode} when fetching ISS flyover times: ${body}`;
       callback(Error(message), null);
       return;
     }
     
-    const result = []; 
-    
+    const result = [];
+    //looping through the response array and pushing the final string result to the result array.
     body.response.forEach(item => {
-      item.risetime = new Date(item.risetime).toISOString();
-      item.duration = `${item.duration} seconds`;
-      result.push(item);
-    })
+      const passTime = new Date(0);
+      passTime.setUTCSeconds(item.risetime);
+      result.push(`Next pass at ${passTime} for ${item.duration} seconds`);
+    });
 
-    callback(null, result)
+    callback(null, result);
 
-  })
-}
+  });
+};
+
+
+const nextISSTimesForMyLocation = (callback) => {
+  fetchMyIP((error, ip) => {
+
+    if (error) {
+      console.log("It didn't work!" , error);
+      return;
+    }
+
+    fetchCoordsByIP(ip, (error, coordinates) => {
+
+      if (error) {
+        console.log("It didn't work!" , error);
+        return;
+      }
+      
+      fetchISSFlyOverTimes(coordinates, (error, data) => {
+        
+        if (error) {
+          console.log("It didn't work!" , error);
+          return;
+        }
+        
+        callback(null, data);
+      });
+      
+    });
+        
+  });
+};
 
 
 
-module.exports = {fetchMyIP, fetchCoordsByIP, fetchISSFlyOverTimes};
+module.exports = {fetchMyIP, fetchCoordsByIP, fetchISSFlyOverTimes, nextISSTimesForMyLocation};
 
